@@ -17,7 +17,7 @@ namespace backendAPI.Controllers
 
         //GET: /Products
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetEmployee()
+        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
         {
             var result = await _productService.GetProducts();
 
