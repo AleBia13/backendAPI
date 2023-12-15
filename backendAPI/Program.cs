@@ -4,7 +4,6 @@ using DataAccessLayer.DataContextFolder;
 using DataAccessLayer.Implementation;
 using DataAccessLayer.Interfaces;
 using DataAccessLayer.Models;
-using Microsoft.AspNet.Identity.EntityFramework;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +12,7 @@ using System.Text;
 
 internal class Program
 {
-    private static void Main(string[] args)
+    private static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
@@ -24,11 +23,14 @@ internal class Program
         var connectionString = builder.Configuration.GetConnectionString("conn");
 
         ConfigureServices(builder.Services,connectionString);
+        builder.Services.AddDbContext<DataContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("conn")));
+
         builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
         //For Identity
-        builder.Services.AddIdentity<ApplicationUser, Microsoft.AspNetCore.Identity.IdentityRole>(options => options.SignIn.RequireConfirmedAccount = true)
-                        .AddEntityFrameworkStores<DataContext>()
+        builder.Services.AddIdentity<ApplicationUser,IdentityRole>(options => options.SignIn.RequireConfirmedAccount = true)
+                .AddRoles<IdentityRole>()          
+                .AddEntityFrameworkStores<DataContext>()
                         .AddDefaultTokenProviders();
         builder.Services.Configure<IdentityOptions>(options =>
         {
@@ -109,16 +111,17 @@ internal class Program
         {
             // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
             app.UseHsts();
+           
         }
         app.UseSwagger();
         app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Name of Your API v1"));
-
         app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
         app.UseHttpsRedirection();
         app.UseStaticFiles();
         app.UseRouting();
         app.UseAuthentication();
+        app.UseAuthorization();
 
         app.UseEndpoints(endpoints =>
         {
@@ -128,6 +131,23 @@ internal class Program
         app.MapControllers();
 
         app.MapFallbackToFile("index.html"); ;
+
+        //seeding
+        using (var scope = app.Services.CreateScope())
+        {
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+            var roles = new[] { "Admin", "Pacient", "Doctor" };
+
+            foreach (var role in roles)
+            {
+                if (!await roleManager.RoleExistsAsync(role))
+                {
+                    await roleManager.CreateAsync(new IdentityRole(role));
+                }
+
+            }
+        }
 
         app.Run();
     }
@@ -141,8 +161,6 @@ internal class Program
 
         services.AddControllers();
 
-        services.AddDbContext<DataContext>(options =>
-        options.UseSqlServer(connectionString));
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IAuthService, AuthService>();

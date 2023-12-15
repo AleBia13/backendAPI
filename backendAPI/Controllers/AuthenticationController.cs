@@ -25,7 +25,7 @@ namespace backendAPI.Controllers
             {
                 if (!ModelState.IsValid)
                     return BadRequest("Invalid payload");
-                var (status, message) = await _authService.Registeration(model, UserRoles.Admin);
+                var (status, message) = await _authService.Registeration(model, model.UserRole);
                 if (status == 0)
                 {
                     return BadRequest(message);
