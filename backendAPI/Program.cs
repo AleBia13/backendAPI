@@ -1,9 +1,15 @@
-
 using BussinessLogicLayer.IServices;
 using BussinessLogicLayer.Services;
 using DataAccessLayer.DataContextFolder;
+using DataAccessLayer.Implementation;
+using DataAccessLayer.Interfaces;
+using DataAccessLayer.Models;
+using Microsoft.AspNet.Identity.EntityFramework;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 internal class Program
 {
@@ -15,7 +21,84 @@ internal class Program
 
         builder.Services.AddControllers();
 
-        ConfigureServices(builder.Services);
+        var connectionString = builder.Configuration.GetConnectionString("conn");
+
+        ConfigureServices(builder.Services,connectionString);
+        builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+        //For Identity
+        builder.Services.AddIdentity<ApplicationUser, Microsoft.AspNetCore.Identity.IdentityRole>(options => options.SignIn.RequireConfirmedAccount = true)
+                        .AddEntityFrameworkStores<DataContext>()
+                        .AddDefaultTokenProviders();
+        builder.Services.Configure<IdentityOptions>(options =>
+        {
+            // Password settings.
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireNonAlphanumeric = true;
+            options.Password.RequireUppercase = true;
+            options.Password.RequiredLength = 6;
+            options.Password.RequiredUniqueChars = 1;
+
+            // Lockout settings.
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.AllowedForNewUsers = true;
+
+            // User settings.
+            options.User.AllowedUserNameCharacters =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
+            options.User.RequireUniqueEmail = false;
+        });
+
+        builder.Services.ConfigureApplicationCookie(options =>
+        {
+            // Cookie settings
+            options.Cookie.HttpOnly = true;
+            options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+
+            options.LoginPath = "/Identity/Account/Login";
+            options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+            options.SlidingExpiration = true;
+        });
+
+        // Adding Authentication  
+        builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+
+                    // Adding Jwt Bearer  
+                    .AddJwtBearer(options =>
+                    {
+                        options.SaveToken = true;
+                        options.RequireHttpsMetadata = false;
+                        options.TokenValidationParameters = new TokenValidationParameters()
+                        {
+                            ValidateIssuer = true,
+                            ValidateAudience = true,
+                            ValidAudience = builder.Configuration["JWT:ValidAudience"],
+                            ValidIssuer = builder.Configuration["JWT:ValidIssuer"],
+                            ClockSkew = TimeSpan.Zero,
+                            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Secret"]))
+                        };
+                    });
+
+        // add app.UseAuthentication() middleware
+
+        //Enable cookies
+        builder.Services.ConfigureApplicationCookie(options =>
+        {
+            // Cookie settings
+            options.Cookie.HttpOnly = true;
+            options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+
+            options.LoginPath = "/Identity/Account/Login";
+            options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+            options.SlidingExpiration = true;
+        });
 
         var app = builder.Build();
 
@@ -35,6 +118,7 @@ internal class Program
         app.UseHttpsRedirection();
         app.UseStaticFiles();
         app.UseRouting();
+        app.UseAuthentication();
 
         app.UseEndpoints(endpoints =>
         {
@@ -48,9 +132,8 @@ internal class Program
         app.Run();
     }
 
-    private static void ConfigureServices(IServiceCollection services)
+    private static void ConfigureServices(IServiceCollection services, string connectionString)
     {
-
         services.AddCors(o => o.AddPolicy("AllowAll", builder =>
         {
             builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
@@ -58,8 +141,11 @@ internal class Program
 
         services.AddControllers();
 
-        services.AddDbContext<DataContext>();
+        services.AddDbContext<DataContext>(options =>
+        options.UseSqlServer(connectionString));
+        services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<IAuthService, AuthService>();
 
         services.AddSwaggerGen();
 
