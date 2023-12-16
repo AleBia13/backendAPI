@@ -4,6 +4,7 @@ using System.IO;
 using OpenAI_API.Moderation;
 using backendAPI.Jsons.Model;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 
 namespace backendAPI.Controllers
 {
@@ -36,6 +37,7 @@ namespace backendAPI.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Roles = "Pacient")]
         public async Task<IActionResult> OpenAi(int id)
         {
             var path = "Jsons/ApiKey.json";

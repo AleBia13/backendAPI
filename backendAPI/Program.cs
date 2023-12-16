@@ -5,9 +5,13 @@ using DataAccessLayer.Implementation;
 using DataAccessLayer.Interfaces;
 using DataAccessLayer.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.Filters;
 using System.Text;
 
 internal class Program
@@ -22,14 +26,14 @@ internal class Program
 
         var connectionString = builder.Configuration.GetConnectionString("conn");
 
-        ConfigureServices(builder.Services,connectionString);
+        ConfigureServices(builder.Services, connectionString);
         builder.Services.AddDbContext<DataContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("conn")));
 
         builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
         //For Identity
-        builder.Services.AddIdentity<ApplicationUser,IdentityRole>(options => options.SignIn.RequireConfirmedAccount = true)
-                .AddRoles<IdentityRole>()          
+        builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options => options.SignIn.RequireConfirmedAccount = true)
+                .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<DataContext>()
                         .AddDefaultTokenProviders();
         builder.Services.Configure<IdentityOptions>(options =>
@@ -88,6 +92,11 @@ internal class Program
                         };
                     });
 
+        //builder.Services.AddAuthorization(options =>
+        //{
+        //    options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+        //    options.AddPolicy("Pacient", policy => policy.RequireRole("Pacient"));
+        //});
         // add app.UseAuthentication() middleware
 
         //Enable cookies
@@ -111,7 +120,7 @@ internal class Program
         {
             // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
             app.UseHsts();
-           
+
         }
         app.UseSwagger();
         app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Name of Your API v1"));
@@ -165,7 +174,19 @@ internal class Program
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IAuthService, AuthService>();
 
-        services.AddSwaggerGen();
+        services.AddSwaggerGen(options =>
+        {
+            options.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
+
+            options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+            {
+                In = ParameterLocation.Header,
+                Name = "Authorization",
+                Type = SecuritySchemeType.ApiKey
+            });
+
+            options.OperationFilter<SecurityRequirementsOperationFilter>();
+        });
 
     }
 

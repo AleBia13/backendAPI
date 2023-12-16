@@ -39,8 +39,8 @@ namespace BussinessLogicLayer.Services
             if (!createUserResult.Succeeded)
                 return (0, "User creation failed! Please check user details and try again.");
 
-            if (!await roleManager.RoleExistsAsync(role))
-                await roleManager.CreateAsync(new IdentityRole(role));
+            //if (!await roleManager.RoleExistsAsync(role))
+            //    await roleManager.CreateAsync(new IdentityRole(role));
 
             if (await roleManager.RoleExistsAsync(role))
                 await userManager.AddToRoleAsync(user, role);
@@ -48,28 +48,28 @@ namespace BussinessLogicLayer.Services
             return (1, "User created successfully!");
         }
 
-        //public async Task<(int, string)> Login(LoginModel model)
-        //{
-        //    var user = await userManager.FindByNameAsync(model.Username);
-        //    if (user == null)
-        //        return (0, "Invalid username");
-        //    if (!await userManager.CheckPasswordAsync(user, model.Password))
-        //        return (0, "Invalid password");
+        public async Task<(int, string)> Login(LoginModel model)
+        {
+            var user = await userManager.FindByNameAsync(model.Username);
+            if (user == null)
+                return (0, "Invalid username");
+            if (!await userManager.CheckPasswordAsync(user, model.Password))
+                return (0, "Invalid password");
 
-        //    var userRoles = await userManager.GetRolesAsync(user);
-        //    var authClaims = new List<Claim>
-        //    {
-        //       new Claim(ClaimTypes.Name, user.UserName),
-        //       new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-        //    };
+            var userRoles = await userManager.GetRolesAsync(user);
+            var authClaims = new List<Claim>
+            {
+               new Claim(ClaimTypes.Name, user.UserName),
+               new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            };
 
-        //    foreach (var userRole in userRoles)
-        //    {
-        //        authClaims.Add(new Claim(ClaimTypes.Role, userRole));
-        //    }
-        //    string token = GenerateToken(authClaims);
-        //    return (1, token);
-        //}
+            foreach (var userRole in userRoles)
+            {
+                authClaims.Add(new Claim(ClaimTypes.Role, userRole));
+            }
+            string token = GenerateToken(authClaims);
+            return (1, token);
+        }
 
 
         private string GenerateToken(IEnumerable<Claim> claims)
